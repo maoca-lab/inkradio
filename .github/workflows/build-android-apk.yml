@@ -1,0 +1,25 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 取回專案檔案
+        uses: actions/checkout@v4
+
+      - name: 用 Buildozer 編譯 APK
+        uses: artiomn/buildozer-action@v3
+        with:
+          command: buildozer android debug
+          buildozer_version: stable
+
+      - name: 上傳產出的 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: inkradio-apk
+          path: ./bin/*.apk
