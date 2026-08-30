@@ -58,8 +58,9 @@ android.add_java_libs = java/
 # (int) Target Android API level (newer NDK needs 24+)
 android.api = 31
 android.minapi = 21
-android.ndk = 23b
+android.ndk = 25b
 android.accept_sdk_license = True
+android.archs = arm64-v8a
 
 # (bool) Show build log
 log_level = 2
