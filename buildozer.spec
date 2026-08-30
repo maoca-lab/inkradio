@@ -47,7 +47,7 @@ source.dir = .
 fullscreen = 0
 
 # (list) Permissions
-android.permissions = INTERNET, WAKE_LOCK, ACCESS_NETWORK_STATE, RECEIVE_BOOT_COMPLETED
+android.permissions = INTERNET, WAKE_LOCK, ACCESS_NETWORK_STATE, RECEIVE_BOOT_COMPLETED, RECORD_AUDIO
 
 # (str) 額外 manifest（開機自播的 receiver 宣告）
 android.extra_manifest = extra_manifest.xml

@@ -535,7 +535,7 @@ KV = r"""
             # 電台典藏清單
             Label:
                 text: '電台典藏'
-                color: app.INK
+                color: app.GOLD
                 size_hint_y: None
                 height: dp(24)
                 halign: 'left'
@@ -553,7 +553,7 @@ KV = r"""
             # 均衡器 EQ
             Label:
                 text: '均衡器 (EQ)'
-                color: app.INK
+                color: app.GOLD
                 size_hint_y: None
                 height: dp(24)
                 halign: 'left'
@@ -568,7 +568,7 @@ KV = r"""
             # 錄音
             Label:
                 text: '錄音 (麥克風)'
-                color: app.INK
+                color: app.GOLD
                 size_hint_y: None
                 height: dp(24)
                 halign: 'left'
@@ -619,7 +619,7 @@ KV = r"""
                 Label:
                     text: '音量'
                     size_hint_x: 0.18
-                    color: app.INK
+                    color: app.GOLD
                 Slider:
                     id: volume
                     min: 0
@@ -658,7 +658,7 @@ KV = r"""
                     on_active: root.on_boot_toggle(self.active)
                 Label:
                     text: '開機自動播放（預設頻道）'
-                    color: app.INK
+                    color: app.GOLD
                     size_hint_x: 0.88
 
             # 備份 / 匯入
@@ -1032,6 +1032,7 @@ class InkRadioApp(App):
     CARD = (0.918, 0.898, 0.851, 1)
     CINNABAR = (0.761, 0.227, 0.169, 1)
     INK = (0.169, 0.169, 0.169, 1)
+    GOLD = (1.0, 0.84, 0.0, 1)   # 黑底上的黃色標籤文字
 
     def build(self):
         Builder.load_string(KV)
