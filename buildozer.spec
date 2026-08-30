@@ -10,7 +10,7 @@ package.name = inkradio
 package.domain = org.inkradio
 
 # (str) Source to include (let gradle handle the android entry point)
-source.include_exts = py,png,jpg,kv,json,atlas
+source.include_exts = py,png,jpg,kv,json,atlas,ttf,ttc,otf
 
 # (list) Source files to include (let include_exts decide if empty)
 source.include_patterns = *
@@ -59,7 +59,11 @@ android.add_java_libs = java/
 android.api = 31
 android.minapi = 21
 android.ndk = 25b
+
+# (bool) Auto accept Android SDK licenses in non-interactive CI environment
 android.accept_sdk_license = True
+
+# (list) Only build arm64 to save time and reduce failure points in CI
 android.archs = arm64-v8a
 
 # (bool) Show build log

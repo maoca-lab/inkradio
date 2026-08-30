@@ -39,11 +39,14 @@ from kivy.uix.checkbox import CheckBox
 from kivy.uix.spinner import Spinner
 from kivy.uix.popup import Popup
 from kivy.uix.filechooser import FileChooserListView
+from kivy.core.text import LabelBase
 
-from kivy.app import App
-from kivy.lang import Builder
-from kivy.clock import Clock
-from kivy.utils import platform   # 'android' / 'win' / 'linux' / 'macosx'
+# 註冊中文字體，避免中文在 APK 內顯示為方塊
+# 字體檔會隨 APK 一起打包（見 buildozer.spec source.include_exts）
+LabelBase.register(name='NotoSansCJK',
+                   fn_regular='NotoSansCJK-Regular.ttc')
+Label.font_name = 'NotoSansCJK'
+Button.font_name = 'NotoSansCJK'
 
 
 # ============================================================
