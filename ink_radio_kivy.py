@@ -28,6 +28,22 @@ from kivy.app import App
 from kivy.lang import Builder
 from kivy.clock import Clock
 from kivy.utils import platform   # 'android' / 'win' / 'linux' / 'macosx'
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.button import Button
+from kivy.uix.label import Label
+from kivy.uix.slider import Slider
+from kivy.uix.textinput import TextInput
+from kivy.uix.scrollview import ScrollView
+from kivy.uix.gridlayout import GridLayout
+from kivy.uix.checkbox import CheckBox
+from kivy.uix.spinner import Spinner
+from kivy.uix.popup import Popup
+from kivy.uix.filechooser import FileChooserListView
+
+from kivy.app import App
+from kivy.lang import Builder
+from kivy.clock import Clock
+from kivy.utils import platform   # 'android' / 'win' / 'linux' / 'macosx'
 
 
 # ============================================================
