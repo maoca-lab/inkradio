@@ -29,7 +29,8 @@ orientation = portrait
 
 # (list) Application requirements
 # 安卓上 jnius 由 buildozer 自動提供，不需列在 requirements
-requirements = python3,kivy
+# 加入 android 以取得動態權限請求模組 (android.permissions)
+requirements = python3,kivy,android
 
 # (str) Custom source folders for requirements
 source.dir = .

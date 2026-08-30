@@ -381,11 +381,27 @@ class Recorder:
             AudioRecord = autoclass("android.media.AudioRecord")
             AudioFormat = autoclass("android.media.AudioFormat")
             AudioSource = autoclass("android.media.MediaRecorder$AudioSource")
-            sr = 44100
+            STATE_INITIALIZED = AudioRecord.STATE_INITIALIZED
+
             ch = AudioFormat.CHANNEL_IN_MONO
             enc = AudioFormat.ENCODING_PCM_16BIT
-            min_buf = AudioRecord.getMinBufferSize(sr, ch, enc)
-            rec = AudioRecord(AudioSource.MIC, sr, ch, enc, min_buf)
+            rec = None
+            sr = 44100
+            # 某些裝置不支援 44100，依序降級嘗試
+            for try_sr in (44100, 32000, 22050, 16000, 11025):
+                min_buf = AudioRecord.getMinBufferSize(try_sr, ch, enc)
+                if min_buf <= 0:
+                    continue
+                candidate = AudioRecord(AudioSource.MIC, try_sr, ch, enc, min_buf)
+                if candidate.getState() == STATE_INITIALIZED:
+                    rec = candidate
+                    sr = try_sr
+                    break
+                candidate.release()
+            if rec is None:
+                self.on_state("錄音初始化失敗：麥克風不支援常用採樣率")
+                return False
+
             rec.startRecording()
             self._rec = rec
             self._path = path
@@ -519,16 +535,21 @@ KV = r"""
                 TextInput:
                     id: name_input
                     hint_text: '電台名稱'
+                    hint_text_color: app.GOLD
+                    foreground_color: app.GOLD
                     font_size: dp(14)
                     multiline: False
                 TextInput:
                     id: url_input
                     hint_text: '串流網址 .m3u8 / .mp3'
+                    hint_text_color: app.GOLD
+                    foreground_color: app.GOLD
                     font_size: dp(13)
                     multiline: False
                 Button:
                     id: add_btn
                     text: '典藏'
+                    color: app.GOLD
                     size_hint_x: 0.28
                     on_press: root.add_station()
 
@@ -580,6 +601,7 @@ KV = r"""
                 Button:
                     id: rec_btn
                     text: '開始錄音'
+                    color: app.GOLD
                     on_press: root.toggle_record()
                 Label:
                     id: rec_timer
@@ -604,10 +626,12 @@ KV = r"""
                 Button:
                     id: play_btn
                     text: '播放 / 暫停'
+                    color: app.GOLD
                     on_press: root.toggle_play()
                 Button:
                     id: mute_btn
                     text: '靜音'
+                    color: app.GOLD
                     size_hint_x: 0.4
                     on_press: root.toggle_mute()
 
@@ -635,11 +659,13 @@ KV = r"""
                 Spinner:
                     id: sleep_spin
                     text: '睡眠定時'
+                    color: app.GOLD
                     values: ['15 分鐘', '30 分鐘', '60 分鐘']
                     size_hint_x: 0.5
                 Button:
                     id: sleep_btn
                     text: '設定'
+                    color: app.GOLD
                     on_press: root.set_sleep()
                 Label:
                     id: sleep_label
@@ -668,9 +694,11 @@ KV = r"""
                 spacing: dp(8)
                 Button:
                     text: '匯出備份'
+                    color: app.GOLD
                     on_press: root.export_stations()
                 Button:
                     text: '匯入備份'
+                    color: app.GOLD
                     on_press: root.import_stations()
 """
 
@@ -738,7 +766,7 @@ class InkRadio(BoxLayout):
         grid.clear_widgets()
         if not self.store.stations:
             grid.add_widget(Label(text="尚無典藏電台",
-                                  color=(0.4, 0.4, 0.4, 1),
+                                  color=App.get_running_app().GOLD,
                                   size_hint_y=None, height=40))
             return
         for s in self.store.stations:
@@ -750,15 +778,16 @@ class InkRadio(BoxLayout):
                     Rectangle(pos=row.pos, size=row.size)
                 row.bind(pos=lambda w, p: self._refresh_rect(w),
                          size=lambda w, sz: self._refresh_rect(w))
-            name = Label(text=s["name"], color=(0.169, 0.169, 0.169, 1),
+            gold = App.get_running_app().GOLD
+            name = Label(text=s["name"], color=gold,
                          halign="left", text_size=(self.width, None),
                          size_hint_x=0.55)
-            play = Button(text="播放", size_hint_x=0.22)
+            play = Button(text="播放", color=gold, size_hint_x=0.22)
             play.bind(on_press=lambda inst, sid=s["id"]: self.play_station(sid))
             row.add_widget(name)
             row.add_widget(play)
             if not s.get("preset"):
-                delete = Button(text="刪除", size_hint_x=0.22)
+                delete = Button(text="刪除", color=gold, size_hint_x=0.22)
                 delete.bind(on_press=lambda inst, sid=s["id"]: self.delete_station(sid))
                 row.add_widget(delete)
             grid.add_widget(row)
@@ -817,14 +846,15 @@ class InkRadio(BoxLayout):
     def _build_eq_ui(self):
         box = self.ids.eq_box
         box.clear_widgets()
+        gold = App.get_running_app().GOLD
         if not self.audio._use_native:
             box.add_widget(Label(text="均衡器僅限安卓",
-                                 color=(0.4, 0.4, 0.4, 1)))
+                                 color=gold))
             return
         # 先放一個佔位，等待播放後取得頻段資訊再填滑桿
         self._eq_built = False
         box.add_widget(Label(text="播放後啟用（依頻段調整）",
-                             color=(0.4, 0.4, 0.4, 1)))
+                             color=gold))
 
     def _ensure_eq_sliders(self):
         if self._eq_built or not self.audio.eq_available():
@@ -833,11 +863,12 @@ class InkRadio(BoxLayout):
         box = self.ids.eq_box
         box.clear_widgets()
         lo, hi = self.audio.eq_range()
+        gold = App.get_running_app().GOLD
         for b in range(self.audio.eq_band_count()):
             col = BoxLayout(orientation="vertical", spacing=2)
             cf = self.audio.eq_band_center(b)
             col.add_widget(Label(text="%dHz" % cf, font_size=11,
-                                 color=(0.169, 0.169, 0.169, 1),
+                                 color=gold,
                                  size_hint_y=0.35))
             sl = Slider(min=lo, max=hi, value=0, orientation="vertical",
                         size_hint_y=0.45)
@@ -849,25 +880,50 @@ class InkRadio(BoxLayout):
         box.add_widget(reset)
 
     # ---------- 錄音 ----------
+    def request_record_permission(self, on_granted):
+        """Android 6.0+ 需要動態請求 RECORD_AUDIO 權限。"""
+        if platform != "android":
+            on_granted()
+            return
+        try:
+            from android.permissions import (
+                request_permissions, Permission, check_permission
+            )
+            if check_permission(Permission.RECORD_AUDIO):
+                on_granted()
+            else:
+                request_permissions(
+                    [Permission.RECORD_AUDIO],
+                    lambda perms, grants: (
+                        on_granted() if grants and grants[0]
+                        else self._on_rec_state("需要錄音權限")
+                    ),
+                )
+        except Exception as e:
+            self._on_rec_state("權限檢查失敗:" + str(e))
+
     def toggle_record(self):
-        if self.recorder.is_recording():
-            path = self.recorder.stop()
-            self.ids.rec_btn.text = "開始錄音"
-            if path and os.path.exists(path):
-                self.recordings.append({
-                    "name": "錄音_%s" % time.strftime("%m%d_%H%M"),
-                    "path": path,
-                })
-                self._save_recordings()
-                self.render_recordings()
-        else:
-            rec_dir = os.path.join(self.store.base, "recordings")
-            os.makedirs(rec_dir, exist_ok=True)
-            path = os.path.join(rec_dir, "rec_%s.wav" % int(time.time()))
-            if self.recorder.start(path):
-                self.ids.rec_btn.text = "停止錄音"
-                self._rec_timer_evt = Clock.schedule_interval(
-                    self._update_rec_timer, 1)
+        def _do_toggle():
+            if self.recorder.is_recording():
+                path = self.recorder.stop()
+                self.ids.rec_btn.text = "開始錄音"
+                if path and os.path.exists(path):
+                    self.recordings.append({
+                        "name": "錄音_%s" % time.strftime("%m%d_%H%M"),
+                        "path": path,
+                    })
+                    self._save_recordings()
+                    self.render_recordings()
+            else:
+                rec_dir = os.path.join(self.store.base, "recordings")
+                os.makedirs(rec_dir, exist_ok=True)
+                path = os.path.join(rec_dir, "rec_%s.wav" % int(time.time()))
+                if self.recorder.start(path):
+                    self.ids.rec_btn.text = "停止錄音"
+                    self._rec_timer_evt = Clock.schedule_interval(
+                        self._update_rec_timer, 1)
+
+        self.request_record_permission(_do_toggle)
 
     def _update_rec_timer(self, dt):
         s = self.recorder.elapsed()
@@ -902,18 +958,19 @@ class InkRadio(BoxLayout):
     def render_recordings(self):
         grid = self.ids.rec_list
         grid.clear_widgets()
+        gold = App.get_running_app().GOLD
         if not self.recordings:
             grid.add_widget(Label(text="尚無錄音",
-                                  color=(0.4, 0.4, 0.4, 1),
+                                  color=gold,
                                   size_hint_y=None, height=36))
             return
         for idx, r in enumerate(self.recordings):
             row = BoxLayout(size_hint_y=None, height=36, spacing=6, padding=[4, 0])
-            name = Label(text=r["name"], color=(0.169, 0.169, 0.169, 1),
+            name = Label(text=r["name"], color=gold,
                          halign="left", size_hint_x=0.5)
-            play = Button(text="播放", size_hint_x=0.25)
+            play = Button(text="播放", color=gold, size_hint_x=0.25)
             play.bind(on_press=lambda inst, p=r["path"]: self._play_rec(p))
-            delete = Button(text="刪除", size_hint_x=0.25)
+            delete = Button(text="刪除", color=gold, size_hint_x=0.25)
             delete.bind(on_press=lambda inst, i=idx: self._del_rec(i))
             row.add_widget(name)
             row.add_widget(play)
