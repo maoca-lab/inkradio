@@ -13,10 +13,12 @@ jobs:
         uses: actions/checkout@v4
 
       - name: 用 Buildozer 編譯 APK
-        uses: artiomn/buildozer-action@v3
-        with:
-          command: buildozer android debug
-          buildozer_version: stable
+        run: |
+          docker run --rm \
+            -v "$PWD":/home/user/host \
+            -w /home/user/host \
+            kivy/buildozer:latest \
+            buildozer android debug
 
       - name: 上傳產出的 APK
         uses: actions/upload-artifact@v4
