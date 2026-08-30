@@ -12,7 +12,7 @@ jobs:
       - name: 取回專案檔案
         uses: actions/checkout@v4
 
-            - name: 用 Buildozer 編譯 APK
+      - name: 用 Buildozer 編譯 APK
         run: |
           docker run --rm \
             -v "$PWD":/home/user/host \
