@@ -689,11 +689,12 @@ KV = r"""
                 size_hint_y: None
                 height: dp(36)
                 spacing: dp(8)
-                CheckBox:
-                    id: boot_toggle
-                    size_hint_x: 0.12
+                Button:
+                    id: boot_toggle_btn
+                    text: '□'
                     color: app.GOLD
-                    on_active: root.on_boot_toggle(self.active)
+                    size_hint_x: 0.12
+                    on_press: root.toggle_boot()
                 Label:
                     text: '開機自動播放（預設頻道）'
                     color: app.GOLD
@@ -731,7 +732,7 @@ class InkRadio(BoxLayout):
         self.render_stations()
         self.render_recordings()
         self._build_eq_ui()
-        self.ids.boot_toggle.active = bool(self.prefs.get("autoplay"))
+        self.ids.boot_toggle_btn.text = '■' if self.prefs.get("autoplay") else '□'
         self._update_sleep_label()
         # 開機自動播放
         if self.prefs.get("autoplay"):
@@ -760,9 +761,11 @@ class InkRadio(BoxLayout):
         except Exception:
             pass
 
-    def on_boot_toggle(self, active):
-        self.prefs["autoplay"] = bool(active)
+    def toggle_boot(self):
+        active = not self.prefs.get("autoplay", False)
+        self.prefs["autoplay"] = active
         self._save_prefs()
+        self.ids.boot_toggle_btn.text = '■' if active else '□'
         self.toast("開機自動播放：" + ("開啟" if active else "關閉"))
 
     def _autoplay(self):
@@ -869,13 +872,18 @@ class InkRadio(BoxLayout):
                              color=gold))
 
     def _ensure_eq_sliders(self):
-        if self._eq_built or not self.audio.eq_available():
+        if self._eq_built:
             return
         self._eq_built = True
         box = self.ids.eq_box
+        gold = App.get_running_app().GOLD
+        if not self.audio.eq_available():
+            box.clear_widgets()
+            box.add_widget(Label(text="本裝置無法啟用均衡器",
+                               color=gold))
+            return
         box.clear_widgets()
         lo, hi = self.audio.eq_range()
-        gold = App.get_running_app().GOLD
         for b in range(self.audio.eq_band_count()):
             col = BoxLayout(orientation="vertical", spacing=2)
             cf = self.audio.eq_band_center(b)
