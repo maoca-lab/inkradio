@@ -911,7 +911,7 @@ class InkRadio(BoxLayout):
             return
         # 先放一個佔位，等待播放後取得頻段資訊再填滑桿
         self._eq_built = False
-        box.add_widget(Label(text="請先選擇電台並播放，EQ 將自動啟用 (v3)",
+        box.add_widget(Label(text="請先選擇電台並播放，EQ 將自動啟用 (v4)",
                              color=gold, font_size=14,
                              halign="center", valign="middle",
                              text_size=(box.width, box.height)))
@@ -1014,26 +1014,37 @@ class InkRadio(BoxLayout):
             self._on_rec_state("權限檢查失敗:" + str(e))
 
     def toggle_record(self):
-        def _do_toggle():
-            if self.recorder.is_recording():
-                path = self.recorder.stop()
-                self.ids.rec_btn.text = "開始錄音"
-                if path and os.path.exists(path):
-                    self.recordings.append({
-                        "name": "錄音_%s" % time.strftime("%m%d_%H%M"),
-                        "path": path,
-                    })
-                    self._save_recordings()
-                    self.render_recordings()
-            else:
-                rec_dir = os.path.join(self.store.base, "recordings")
-                os.makedirs(rec_dir, exist_ok=True)
-                path = os.path.join(rec_dir, "rec_%s.wav" % int(time.time()))
-                if self.recorder.start(path):
-                    self.ids.rec_btn.text = "停止錄音"
-                    self._rec_timer_evt = Clock.schedule_interval(
-                        self._update_rec_timer, 1)
+        # 防止按鈕連點導致開始/停止錯亂
+        if getattr(self, "_rec_toggling", False):
+            return
+        self._rec_toggling = True
 
+        def _do_toggle():
+            try:
+                if self.recorder.is_recording():
+                    path = self.recorder.stop()
+                    self.ids.rec_btn.text = "開始錄音"
+                    if path and os.path.exists(path):
+                        self.recordings.append({
+                            "name": "錄音_%s" % time.strftime("%m%d_%H%M"),
+                            "path": path,
+                        })
+                        self._save_recordings()
+                        self.render_recordings()
+                else:
+                    rec_dir = os.path.join(self.store.base, "recordings")
+                    os.makedirs(rec_dir, exist_ok=True)
+                    path = os.path.join(rec_dir, "rec_%s.wav" % int(time.time()))
+                    if self.recorder.start(path):
+                        self.ids.rec_btn.text = "停止錄音"
+                        self._rec_timer_evt = Clock.schedule_interval(
+                            self._update_rec_timer, 1)
+                    else:
+                        self.ids.rec_btn.text = "開始錄音"
+            finally:
+                self._rec_toggling = False
+
+        self.ids.rec_btn.text = "授權中…"
         self.request_record_permission(_do_toggle)
 
     def _update_rec_timer(self, dt):
