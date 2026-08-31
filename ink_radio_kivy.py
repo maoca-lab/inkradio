@@ -164,6 +164,7 @@ class AudioEngine:
         self._eq_min = -1500
         self._eq_max = 1500
         self._eq_center = []   # 各頻段中心頻率（Hz）
+        self._eq_error = None  # 初始化失敗原因
 
         if self._use_native:
             self._init_native()
@@ -239,13 +240,21 @@ class AudioEngine:
                 pass
 
     # ---- Equalizer（安卓） ----
-    def _setup_eq(self):
+    def _setup_eq(self, retry=0):
         if not self._use_native or not self._mp:
+            self._eq_error = "非安卓環境，無法使用 EQ"
             return
         try:
             session = self._mp.getAudioSessionId()
             if session == 0:
-                return
+                if retry < 5:
+                    # 某些裝置 session id 延遲取得，稍後再試
+                    from kivy.clock import Clock
+                    Clock.schedule_once(lambda dt: self._setup_eq(retry + 1), 0.5)
+                    return
+                else:
+                    self._eq_error = "無法取得 AudioSessionId（播放器尚未準備好）"
+                    return
             Equalizer = self._autoclass("android.media.audiofx.Equalizer")
             eq = Equalizer(0, session)
             eq.setEnabled(True)
@@ -257,8 +266,11 @@ class AudioEngine:
             for b in range(self._eq_bands):
                 cf = int(eq.getCenterFreq(b)) // 1000   # milliHz → Hz
                 self._eq_center.append(cf)
+            self._eq_error = None
         except Exception as e:
-            print("EQ 初始化失敗:", e)
+            self._eq = None
+            self._eq_error = "EQ 初始化失敗: " + str(e)
+            print(self._eq_error)
 
     def eq_available(self):
         return self._eq is not None
@@ -731,6 +743,7 @@ class InkRadio(BoxLayout):
         self.audio.on_state(self._on_audio_state)
         self.render_stations()
         self.render_recordings()
+        self._eq_built = False
         self._build_eq_ui()
         self.ids.boot_toggle_btn.text = '■' if self.prefs.get("autoplay") else '□'
         self._update_sleep_label()
@@ -864,43 +877,62 @@ class InkRadio(BoxLayout):
         gold = App.get_running_app().GOLD
         if not self.audio._use_native:
             box.add_widget(Label(text="均衡器僅限安卓",
-                                 color=gold))
+                                 color=gold, font_size=14))
+            self._eq_built = True
             return
         # 先放一個佔位，等待播放後取得頻段資訊再填滑桿
         self._eq_built = False
-        box.add_widget(Label(text="播放後啟用（依頻段調整）",
-                             color=gold))
+        box.add_widget(Label(text="請先選擇電台並播放，EQ 將自動啟用",
+                             color=gold, font_size=14))
 
-    def _ensure_eq_sliders(self):
-        if self._eq_built:
+    def _ensure_eq_sliders(self, retry=0):
+        if getattr(self, "_eq_built", False):
             return
-        self._eq_built = True
         box = self.ids.eq_box
         gold = App.get_running_app().GOLD
-        if not self.audio.eq_available():
+        try:
+            if not self.audio.eq_available():
+                if retry < 10:
+                    # 給 _setup_eq 延遲初始化一點時間，稍後再試
+                    Clock.schedule_once(
+                        lambda dt, r=retry: self._ensure_eq_sliders(r + 1), 0.3)
+                    return
+                self._eq_built = True
+                err = getattr(self.audio, "_eq_error", None) or "本裝置無法啟用均衡器"
+                box.clear_widgets()
+                box.add_widget(Label(text=err,
+                                     color=gold, font_size=13))
+                return
+            self._eq_built = True
             box.clear_widgets()
-            box.add_widget(Label(text="本裝置無法啟用均衡器",
-                               color=gold))
-            return
-        box.clear_widgets()
-        lo, hi = self.audio.eq_range()
-        for b in range(self.audio.eq_band_count()):
-            col = BoxLayout(orientation="vertical", spacing=2)
-            cf = self.audio.eq_band_center(b)
-            col.add_widget(Label(text="%dHz" % cf, font_size=11,
-                                 color=gold,
-                                 size_hint_y=0.35))
-            sl = Slider(min=lo, max=hi, value=0, orientation="vertical",
-                        size_hint_y=0.45, value_track=True,
-                        value_track_color=gold,
-                        cursor_color=gold,
-                        background_color=(0.3, 0.3, 0.3, 1))
-            sl.bind(value=lambda v, band=b: self.audio.set_eq_band(band, v.value))
-            col.add_widget(sl)
-            box.add_widget(col)
-        reset = Button(text="重置", color=gold, size_hint_x=0.12)
-        reset.bind(on_press=lambda inst: self.audio.reset_eq())
-        box.add_widget(reset)
+            lo, hi = self.audio.eq_range()
+            count = self.audio.eq_band_count()
+            if count <= 0:
+                box.add_widget(Label(text="EQ 回傳 0 個頻段",
+                                     color=gold, font_size=13))
+                return
+            for b in range(count):
+                col = BoxLayout(orientation="vertical", spacing=2)
+                cf = self.audio.eq_band_center(b)
+                col.add_widget(Label(text="%dHz" % cf, font_size=11,
+                                     color=gold,
+                                     size_hint_y=0.35))
+                sl = Slider(min=lo, max=hi, value=0, orientation="vertical",
+                            size_hint_y=0.45, value_track=True,
+                            value_track_color=gold,
+                            cursor_color=gold,
+                            background_color=(0.3, 0.3, 0.3, 1))
+                sl.bind(value=lambda v, band=b: self.audio.set_eq_band(band, v.value))
+                col.add_widget(sl)
+                box.add_widget(col)
+            reset = Button(text="重置", color=gold, size_hint_x=0.12)
+            reset.bind(on_press=lambda inst: self.audio.reset_eq())
+            box.add_widget(reset)
+        except Exception as e:
+            self._eq_built = True
+            box.clear_widgets()
+            box.add_widget(Label(text="EQ 載入失敗: " + str(e),
+                                 color=gold, font_size=12))
 
     # ---------- 錄音 ----------
     def request_record_permission(self, on_granted):
