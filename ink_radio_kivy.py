@@ -454,7 +454,9 @@ class Recorder:
         if not self.recording:
             return None
         self.recording = False
-        # WAV 在背景執行緒結束後寫入；稍候回傳路徑
+        # 等待背景執行緒結束並寫完 WAV，再回傳路徑
+        if self._thread and self._thread.is_alive():
+            self._thread.join(timeout=2)
         return self._path
 
 
@@ -513,7 +515,7 @@ KV = r"""
                 Label:
                     id: status_label
                     text: '● 待機'
-                    color: app.INK
+                    color: app.GOLD
                     font_size: dp(16)
                     halign: 'left'
                     text_size: self.width, None
@@ -537,6 +539,7 @@ KV = r"""
                     hint_text: '電台名稱'
                     hint_text_color: app.GOLD
                     foreground_color: app.GOLD
+                    background_color: (0.1, 0.1, 0.1, 1)
                     font_size: dp(14)
                     multiline: False
                 TextInput:
@@ -544,6 +547,7 @@ KV = r"""
                     hint_text: '串流網址 .m3u8 / .mp3'
                     hint_text_color: app.GOLD
                     foreground_color: app.GOLD
+                    background_color: (0.1, 0.1, 0.1, 1)
                     font_size: dp(13)
                     multiline: False
                 Button:
@@ -584,6 +588,13 @@ KV = r"""
                 size_hint_y: None
                 height: dp(90)
                 spacing: dp(6)
+                padding: dp(6)
+                canvas.before:
+                    Color:
+                        rgba: 0.15, 0.15, 0.15, 1
+                    Rectangle:
+                        pos: self.pos
+                        size: self.size
                 # 動態填入頻段滑桿
 
             # 錄音
@@ -681,6 +692,7 @@ KV = r"""
                 CheckBox:
                     id: boot_toggle
                     size_hint_x: 0.12
+                    color: app.GOLD
                     on_active: root.on_boot_toggle(self.active)
                 Label:
                     text: '開機自動播放（預設頻道）'
@@ -871,11 +883,14 @@ class InkRadio(BoxLayout):
                                  color=gold,
                                  size_hint_y=0.35))
             sl = Slider(min=lo, max=hi, value=0, orientation="vertical",
-                        size_hint_y=0.45)
+                        size_hint_y=0.45, value_track=True,
+                        value_track_color=gold,
+                        cursor_color=gold,
+                        background_color=(0.3, 0.3, 0.3, 1))
             sl.bind(value=lambda v, band=b: self.audio.set_eq_band(band, v.value))
             col.add_widget(sl)
             box.add_widget(col)
-        reset = Button(text="重置", size_hint_x=0.12)
+        reset = Button(text="重置", color=gold, size_hint_x=0.12)
         reset.bind(on_press=lambda inst: self.audio.reset_eq())
         box.add_widget(reset)
 
