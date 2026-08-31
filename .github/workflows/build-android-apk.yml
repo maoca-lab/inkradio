@@ -1,6 +1,6 @@
 # .github/workflows/build-android-apk.yml
 # ==========================================
-# 水墨電台 - GitHub Actions 自動化打包工作流
+# 水墨電台 - GitHub Actions 自動化打包工作流 (Ubuntu 24.04 相容版)
 # ==========================================
 name: Build Android APK
 
@@ -30,11 +30,11 @@ jobs:
         with:
           python-version: '3.10'
 
-      # 4. 安裝 Linux 系統依賴套件與 Buildozer
+      # 4. 安裝 Linux 系統依賴套件 (已將 libtinfo5 修正為 libtinfo6)
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y openjdk-17-jdk zip unzip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake build-essential libssl-dev libffi-dev
+          sudo apt-get install -y openjdk-17-jdk zip unzip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo6 cmake build-essential libssl-dev libffi-dev
           pip install --upgrade pip
           pip install buildozer cython
 
@@ -43,7 +43,7 @@ jobs:
         run: |
           buildozer -v android debug
 
-      # 6. 上傳 Buildozer 日誌附件
+      # 6. 上傳 Buildozer 日誌附件 (不論成功或失敗皆執行)
       - name: Upload Buildozer Log
         if: always()
         uses: actions/upload-artifact@v4
