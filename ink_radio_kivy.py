@@ -851,6 +851,9 @@ class InkRadio(BoxLayout):
         self.ids.now_label.text = "目前：" + s["name"]
         self.audio.play_url(s["url"])
         self.render_stations()
+        # 主動觸發 EQ 初始化（防止狀態回呼遺漏）
+        self._eq_built = False
+        self._ensure_eq_sliders()
 
     # ---------- 播放控制 ----------
     def toggle_play(self):
@@ -858,6 +861,10 @@ class InkRadio(BoxLayout):
             self.toast("請先選擇電台")
             return
         self.audio.toggle()
+        # 若開始播放，主動觸發 EQ 初始化
+        if self.audio.playing:
+            self._eq_built = False
+            self._ensure_eq_sliders()
 
     def on_volume(self, value):
         self.audio.set_volume(value / 100.0)
@@ -877,22 +884,34 @@ class InkRadio(BoxLayout):
         gold = App.get_running_app().GOLD
         if not self.audio._use_native:
             box.add_widget(Label(text="均衡器僅限安卓",
-                                 color=gold, font_size=14))
+                                 color=gold, font_size=14,
+                                 halign="center", valign="middle",
+                                 text_size=(box.width, box.height)))
             self._eq_built = True
             return
         # 先放一個佔位，等待播放後取得頻段資訊再填滑桿
         self._eq_built = False
-        box.add_widget(Label(text="請先選擇電台並播放，EQ 將自動啟用",
-                             color=gold, font_size=14))
+        box.add_widget(Label(text="請先選擇電台並播放，EQ 將自動啟用 (v2)",
+                             color=gold, font_size=14,
+                             halign="center", valign="middle",
+                             text_size=(box.width, box.height)))
 
     def _ensure_eq_sliders(self, retry=0):
-        if getattr(self, "_eq_built", False):
+        # 如果之前標記為 built 但播放器已重置（切換電台），允許重建
+        if getattr(self, "_eq_built", False) and self.audio.eq_available():
             return
+        self._eq_built = False
         box = self.ids.eq_box
         gold = App.get_running_app().GOLD
         try:
             if not self.audio.eq_available():
                 if retry < 10:
+                    # 顯示正在嘗試，讓用戶知道沒有當掉
+                    box.clear_widgets()
+                    box.add_widget(Label(text="EQ 初始化中… (%d/10)" % (retry + 1),
+                                         color=gold, font_size=13,
+                                         halign="center", valign="middle",
+                                         text_size=(box.width, box.height)))
                     # 給 _setup_eq 延遲初始化一點時間，稍後再試
                     Clock.schedule_once(
                         lambda dt, r=retry: self._ensure_eq_sliders(r + 1), 0.3)
@@ -901,7 +920,9 @@ class InkRadio(BoxLayout):
                 err = getattr(self.audio, "_eq_error", None) or "本裝置無法啟用均衡器"
                 box.clear_widgets()
                 box.add_widget(Label(text=err,
-                                     color=gold, font_size=13))
+                                     color=gold, font_size=13,
+                                     halign="center", valign="middle",
+                                     text_size=(box.width, box.height)))
                 return
             self._eq_built = True
             box.clear_widgets()
@@ -909,7 +930,9 @@ class InkRadio(BoxLayout):
             count = self.audio.eq_band_count()
             if count <= 0:
                 box.add_widget(Label(text="EQ 回傳 0 個頻段",
-                                     color=gold, font_size=13))
+                                     color=gold, font_size=13,
+                                     halign="center", valign="middle",
+                                     text_size=(box.width, box.height)))
                 return
             for b in range(count):
                 col = BoxLayout(orientation="vertical", spacing=2)
@@ -932,7 +955,9 @@ class InkRadio(BoxLayout):
             self._eq_built = True
             box.clear_widgets()
             box.add_widget(Label(text="EQ 載入失敗: " + str(e),
-                                 color=gold, font_size=12))
+                                 color=gold, font_size=12,
+                                 halign="center", valign="middle",
+                                 text_size=(box.width, box.height)))
 
     # ---------- 錄音 ----------
     def request_record_permission(self, on_granted):
