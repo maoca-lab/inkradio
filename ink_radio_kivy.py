@@ -243,6 +243,7 @@ class AudioEngine:
     def _setup_eq(self, retry=0):
         if not self._use_native or not self._mp:
             self._eq_error = "非安卓環境，無法使用 EQ"
+            self._notify_eq_ui()
             return
         try:
             session = self._mp.getAudioSessionId()
@@ -254,6 +255,7 @@ class AudioEngine:
                     return
                 else:
                     self._eq_error = "無法取得 AudioSessionId（播放器尚未準備好）"
+                    self._notify_eq_ui()
                     return
             Equalizer = self._autoclass("android.media.audiofx.Equalizer")
             eq = Equalizer(0, session)
@@ -267,10 +269,26 @@ class AudioEngine:
                 cf = int(eq.getCenterFreq(b)) // 1000   # milliHz → Hz
                 self._eq_center.append(cf)
             self._eq_error = None
+            self._notify_eq_ui()
         except Exception as e:
             self._eq = None
             self._eq_error = "EQ 初始化失敗: " + str(e)
             print(self._eq_error)
+            self._notify_eq_ui()
+
+    def _notify_eq_ui(self):
+        """EQ 初始化完成後主動通知 UI 刷新。"""
+        try:
+            from kivy.app import App
+            from kivy.clock import Clock
+            app = App.get_running_app()
+            if app and hasattr(app, 'root') and app.root:
+                root = app.root
+                # 強制允許重建，避免被並發保護擋掉
+                root._eq_initializing = False
+                Clock.schedule_once(lambda dt: root._ensure_eq_sliders(), 0)
+        except Exception:
+            pass
 
     def eq_available(self):
         return self._eq is not None
@@ -552,6 +570,7 @@ KV = r"""
                     hint_text_color: app.GOLD
                     foreground_color: app.GOLD
                     background_color: (0.1, 0.1, 0.1, 1)
+                    font_name: 'NotoSansCJK'
                     font_size: dp(14)
                     multiline: False
                 TextInput:
@@ -560,6 +579,7 @@ KV = r"""
                     hint_text_color: app.GOLD
                     foreground_color: app.GOLD
                     background_color: (0.1, 0.1, 0.1, 1)
+                    font_name: 'NotoSansCJK'
                     font_size: dp(13)
                     multiline: False
                 Button:
@@ -891,16 +911,22 @@ class InkRadio(BoxLayout):
             return
         # 先放一個佔位，等待播放後取得頻段資訊再填滑桿
         self._eq_built = False
-        box.add_widget(Label(text="請先選擇電台並播放，EQ 將自動啟用 (v2)",
+        box.add_widget(Label(text="請先選擇電台並播放，EQ 將自動啟用 (v3)",
                              color=gold, font_size=14,
                              halign="center", valign="middle",
                              text_size=(box.width, box.height)))
 
     def _ensure_eq_sliders(self, retry=0):
-        # 如果之前標記為 built 但播放器已重置（切換電台），允許重建
-        if getattr(self, "_eq_built", False) and self.audio.eq_available():
+        # 已建立完成就不再動
+        if getattr(self, "_eq_built", False):
             return
-        self._eq_built = False
+        # 外部並發呼叫保護：若已有初始化隊列在跑，且本次不是被 schedule 進來的，則跳過
+        if retry == 0 and getattr(self, "_eq_initializing", False):
+            return
+
+        if retry == 0:
+            self._eq_initializing = True
+
         box = self.ids.eq_box
         gold = App.get_running_app().GOLD
         try:
@@ -916,7 +942,9 @@ class InkRadio(BoxLayout):
                     Clock.schedule_once(
                         lambda dt, r=retry: self._ensure_eq_sliders(r + 1), 0.3)
                     return
+                # 重試結束仍失敗，標記完成並顯示錯誤
                 self._eq_built = True
+                self._eq_initializing = False
                 err = getattr(self.audio, "_eq_error", None) or "本裝置無法啟用均衡器"
                 box.clear_widgets()
                 box.add_widget(Label(text=err,
@@ -924,7 +952,9 @@ class InkRadio(BoxLayout):
                                      halign="center", valign="middle",
                                      text_size=(box.width, box.height)))
                 return
+            # 成功取得 EQ
             self._eq_built = True
+            self._eq_initializing = False
             box.clear_widgets()
             lo, hi = self.audio.eq_range()
             count = self.audio.eq_band_count()
@@ -953,6 +983,7 @@ class InkRadio(BoxLayout):
             box.add_widget(reset)
         except Exception as e:
             self._eq_built = True
+            self._eq_initializing = False
             box.clear_widgets()
             box.add_widget(Label(text="EQ 載入失敗: " + str(e),
                                  color=gold, font_size=12,
@@ -1148,7 +1179,8 @@ class InkRadio(BoxLayout):
     def _on_audio_state(self, state):
         if state == "playing":
             self.ids.status_label.text = "● 播放中"
-            self._ensure_eq_sliders()
+            if not getattr(self, "_eq_built", False):
+                self._ensure_eq_sliders()
         elif state == "paused":
             self.ids.status_label.text = "● 已暫停"
         elif state == "error":
