@@ -1,3 +1,7 @@
+# .github/workflows/build-android-apk.yml
+# ==========================================
+# 水墨電台 - GitHub Actions 自動化打包工作流 (標準精簡版)
+# ==========================================
 name: Build Android APK
 
 on:
@@ -11,22 +15,22 @@ jobs:
 
     steps:
       # 1. 取回專案程式碼
-      - name: 取回專案檔案
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. 清理舊編譯快取 (避免歷史檔案干擾)
-      - name: 清理舊編譯快取
+      # 2. 清理舊編譯快取與暫存
+      - name: Clean build cache
         run: |
           rm -rf .buildozer
           rm -rf bin
 
-      # 3. 設定 Python 環境
+      # 3. 設定 Python 3.10 環境
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      # 4. 安裝 Linux 系統依賴套件
+      # 4. 安裝 Linux 系統依賴與 Buildozer
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -34,127 +38,22 @@ jobs:
           pip install --upgrade pip
           pip install buildozer cython
 
-      # 5. 執行 Buildozer 打包
+      # 5. 執行 Buildozer 打包 APK
       - name: Build with Buildozer
         run: |
           buildozer -v android debug
 
-      # 6. 印出錯誤分析日誌 (獨立的 Shell 指令步驟)
-      - name: Print Buildozer Log Summary
-        if: always()
-        run: |
-          echo "===== buildozer.log 錯誤分析 ====="
-          if [ -f buildozer.log ]; then
-            grep -iE "error|fail|exception|traceback" buildozer.log || true
-            echo ""
-            echo "===== buildozer.log 最後 100 行 ====="
-            tail -n 100 buildozer.log
-          else
-            echo "未找到 buildozer.log 檔案"
-          fi
-
-      # 7. 上傳完整的 Buildozer 日誌檔為附件
-      - name: Upload Buildozer Log Artifact
+      # 6. 上傳 Buildozer 日誌附件 (不論成功或失敗皆執行)
+      - name: Upload Buildozer Log
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: buildozer-log
           path: buildozer.log
 
-      # 8. 打包成功後上傳生成的 APK
-      - name: Upload APK Artifact
+      # 7. 上傳產出的 APK 安裝包
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
           path: bin/*.apk
-      # 5. 執行 Buildozer 打包
-      - name: Build with Buildozer
-        run: |
-          buildozer -v android debug
-
-      # 6. 上傳 Buildozer 日誌附件 (方便排錯)
-      - name: Upload Buildozer Log Artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: buildozer-log
-          path: buildozer.log
-
-      # 7. 上傳生成好的 APK
-      - name: Upload APK Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-apk
-          path: bin/*.apk
-          if [ -f buildozer.log ]; then
-            grep -iE "error|fail|exception|traceback|could not|unable|fatal|BUILD FAILED" buildozer.log | tail -n 60
-            echo ""
-            echo "===== buildozer.log 最後 100 行 ====="
-            tail -n 100 buildozer.log
-          else
-            echo "未找到 buildozer.log，編譯可能尚未開始。"
-          fi
-
-      - name: 上傳 buildozer 完整日志（供下載排查）
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: buildozer-log
-          path: buildozer.log          echo "===== buildozer.log 關鍵錯誤（含 error/fail/exception 的行）====="
-          if [ -f buildozer.log ]; then
-            grep -iE "error|fail|exception|traceback|could not|unable|fatal|BUILD FAILED" buildozer.log | tail -n 60
-            echo ""
-            echo "===== buildozer.log 最後 100 行 ====="
-            tail -n 100 buildozer.log
-          else
-            echo "未找到 buildozer.log，編譯可能尚未開始。"
-          fi
-
-      - name: 上傳 buildozer 完整日志（供下載排查）
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: buildozer-log
-          path: buildozer.log          echo "===== buildozer.log 關鍵錯誤（含 error/fail/exception 的行）====="
-          if [ -f buildozer.log ]; then
-            grep -iE "error|fail|exception|traceback|could not|unable|fatal|BUILD FAILED" buildozer.log | tail -n 60
-            echo ""
-            echo "===== buildozer.log 最後 100 行 ====="
-            tail -n 100 buildozer.log
-          else
-            echo "未找到 buildozer.log，編譯可能尚未開始。"
-          fi
-
-      - name: 上傳 buildozer 完整日志（供下載排查）
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: buildozer-log
-          path: buildozer.log          echo "===== buildozer.log 關鍵錯誤（含 error/fail/exception 的行）====="
-          if [ -f buildozer.log ]; then
-            grep -iE "error|fail|exception|traceback|could not|unable|fatal|BUILD FAILED" buildozer.log | tail -n 60
-            echo ""
-            echo "===== buildozer.log 最後 100 行 ====="
-            tail -n 100 buildozer.log
-          else
-            echo "未找到 buildozer.log，編譯可能尚未開始。"
-          fi
-
-      - name: 上傳 buildozer 完整日志（供下載排查）
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: buildozer-log
-          path: buildozer.log            echo ""
-            echo "===== buildozer.log 最後 100 行 ====="
-            tail -n 100 buildozer.log
-          else
-            echo "未找到 buildozer.log，編譯可能尚未開始。"
-          fi
-
-      - name: 上傳 buildozer 完整日志（供下載排查）
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: buildozer-log
-          path: buildozer.log
