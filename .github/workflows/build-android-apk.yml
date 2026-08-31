@@ -12,9 +12,6 @@ jobs:
       - name: 取回專案檔案
         uses: actions/checkout@v4
 
-      - name: 清理舊編譯緩存（確保每次使用最新原始碼重新編譯）
-        run: rm -rf .buildozer bin
-
       - name: 用 Buildozer 編譯 APK
         id: build
         run: |
@@ -35,6 +32,21 @@ jobs:
         if: failure()
         run: |
           echo "===== buildozer.log 關鍵錯誤（含 error/fail/exception 的行）====="
+          if [ -f buildozer.log ]; then
+            grep -iE "error|fail|exception|traceback|could not|unable|fatal|BUILD FAILED" buildozer.log | tail -n 60
+            echo ""
+            echo "===== buildozer.log 最後 100 行 ====="
+            tail -n 100 buildozer.log
+          else
+            echo "未找到 buildozer.log，編譯可能尚未開始。"
+          fi
+
+      - name: 上傳 buildozer 完整日志（供下載排查）
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: buildozer-log
+          path: buildozer.log          echo "===== buildozer.log 關鍵錯誤（含 error/fail/exception 的行）====="
           if [ -f buildozer.log ]; then
             grep -iE "error|fail|exception|traceback|could not|unable|fatal|BUILD FAILED" buildozer.log | tail -n 60
             echo ""
