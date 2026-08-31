@@ -14,7 +14,7 @@ jobs:
       - name: 取回專案檔案
         uses: actions/checkout@v4
 
-      # 2. 新增：清理舊編譯快取與輸出檔 (確保語法縮排為 2 個空格)
+      # 2. 清理舊編譯快取 (避免歷史檔案干擾)
       - name: 清理舊編譯快取
         run: |
           rm -rf .buildozer
@@ -26,7 +26,7 @@ jobs:
         with:
           python-version: '3.10'
 
-      # 4. 安裝系統依賴套件
+      # 4. 安裝 Linux 系統依賴套件
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -34,6 +34,39 @@ jobs:
           pip install --upgrade pip
           pip install buildozer cython
 
+      # 5. 執行 Buildozer 打包
+      - name: Build with Buildozer
+        run: |
+          buildozer -v android debug
+
+      # 6. 印出錯誤分析日誌 (獨立的 Shell 指令步驟)
+      - name: Print Buildozer Log Summary
+        if: always()
+        run: |
+          echo "===== buildozer.log 錯誤分析 ====="
+          if [ -f buildozer.log ]; then
+            grep -iE "error|fail|exception|traceback" buildozer.log || true
+            echo ""
+            echo "===== buildozer.log 最後 100 行 ====="
+            tail -n 100 buildozer.log
+          else
+            echo "未找到 buildozer.log 檔案"
+          fi
+
+      # 7. 上傳完整的 Buildozer 日誌檔為附件
+      - name: Upload Buildozer Log Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: buildozer-log
+          path: buildozer.log
+
+      # 8. 打包成功後上傳生成的 APK
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: bin/*.apk
       # 5. 執行 Buildozer 打包
       - name: Build with Buildozer
         run: |
