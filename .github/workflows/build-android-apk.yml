@@ -11,6 +11,8 @@ jobs:
     steps:
       - name: 取回專案檔案
         uses: actions/checkout@v4
+      - name: 清理舊編譯緩存
+        run: rm -rf .buildozer bin
 
       - name: 用 Buildozer 編譯 APK
         id: build
