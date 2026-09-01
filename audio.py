@@ -30,6 +30,8 @@ class AudioEngine:
         self._state_cb.append(cb)
 
     def _emit(self, state):
+        # 統一由狀態回呼決定播放旗標，避免原生後端與 SDL 後端不同步
+        self.playing = (state == "playing")
         for cb in self._state_cb:
             try:
                 cb(state)

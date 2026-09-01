@@ -421,7 +421,7 @@ class InkRadio(BoxLayout):
             return
         # 先放一個佔位，等待播放後取得頻段資訊再填滑桿
         self._eq_built = False
-        box.add_widget(self._eq_label("請先選擇電台並播放，EQ 將自動啟用 (v5)", gold))
+        box.add_widget(self._eq_label("請先選擇電台並播放，EQ 將自動啟用 (v7)", gold))
 
     def _eq_label(self, text, color):
         """產生一個在 eq_box 內可見的置中 Label。"""
@@ -484,9 +484,7 @@ class InkRadio(BoxLayout):
                                      size_hint_y=0.35))
                 sl = Slider(min=lo, max=hi, value=0, orientation="vertical",
                             size_hint_y=0.45, value_track=True,
-                            value_track_color=gold,
-                            cursor_color=gold,
-                            background_color=(0.3, 0.3, 0.3, 1))
+                            value_track_color=gold)
                 sl.bind(value=lambda v, band=b: self.audio.set_eq_band(band, v.value))
                 col.add_widget(sl)
                 box.add_widget(col)
